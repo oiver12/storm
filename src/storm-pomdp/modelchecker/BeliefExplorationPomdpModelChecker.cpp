@@ -1206,8 +1206,6 @@ bool BeliefExplorationPomdpModelChecker<PomdpModelType, BeliefValueType, BeliefM
                         }
                     }
                 }
-                setUnfoldingToWait();
-                while (unfoldingControl == UnfoldingControl::WaitForCutoffValues);
                 pauseUnfolding();
             }
         }
