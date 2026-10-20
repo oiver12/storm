@@ -782,12 +782,12 @@ void BeliefExplorationPomdpModelChecker<PomdpModelType, BeliefValueType, BeliefM
                 STORM_LOG_INFO("Fixpoint reached after " << statistics.refinementSteps.value() << " iterations.\n");
                 statistics.refinementFixpointDetected = true;
                 unfoldingStatus = Status::Converged;
-                unfoldingControl = UnfoldingControl::Pause;
+                setUnfoldingControl(UnfoldingControl::Pause);
             }
             if (!hasTruncatedStates) {
                 STORM_LOG_INFO("No states have been truncated, so continued iteration does not yield new results.\n");
                 unfoldingStatus = Status::Converged;
-                unfoldingControl = UnfoldingControl::Pause;
+                setUnfoldingControl(UnfoldingControl::Pause);
             }
         }
         // While we tell the procedure to be paused, idle
@@ -1554,7 +1554,13 @@ bool BeliefExplorationPomdpModelChecker<PomdpModelType, BeliefValueType, BeliefM
 template<typename PomdpModelType, typename BeliefValueType, typename BeliefMDPType>
 void BeliefExplorationPomdpModelChecker<PomdpModelType, BeliefValueType, BeliefMDPType>::setUnfoldingControl(
     storm::pomdp::modelchecker::BeliefExplorationPomdpModelChecker<PomdpModelType, BeliefValueType, BeliefMDPType>::UnfoldingControl newUnfoldingControl) {
-    unfoldingControl = newUnfoldingControl;
+    // Termination is final for this run, including when the worker concurrently pauses after convergence.
+    auto currentControl = unfoldingControl.load();
+    while (currentControl != UnfoldingControl::Terminate) {
+        if (unfoldingControl.compare_exchange_weak(currentControl, newUnfoldingControl)) {
+            return;
+        }
+    }
 }
 
 template<typename PomdpModelType, typename BeliefValueType, typename BeliefMDPType>

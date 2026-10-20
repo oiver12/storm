@@ -1,3 +1,5 @@
+#include <atomic>
+
 #include "storm-pomdp/builder/BeliefMdpExplorer.h"
 #include "storm-pomdp/modelchecker/BeliefExplorationPomdpModelCheckerOptions.h"
 #include "storm-pomdp/storage/BeliefManager.h"
@@ -379,6 +381,19 @@ class BeliefExplorationPomdpModelChecker {
 
     BeliefMDPType triangulateBeliefWithOverApproxValues(std::unordered_map<uint64_t, BeliefValueType> const& belief, BeliefValueType const& resolution);
 
+    // The existing factory returns a checker by value before any worker is started.
+    // Preserve value construction without sharing control state between checker copies.
+    template<typename T>
+    struct CopyableAtomic : std::atomic<T> {
+        explicit CopyableAtomic(T initial) : std::atomic<T>(initial) {}
+        CopyableAtomic(CopyableAtomic const& other) : std::atomic<T>(other.load()) {}
+        CopyableAtomic& operator=(CopyableAtomic const& other) {
+            this->store(other.load());
+            return *this;
+        }
+        using std::atomic<T>::operator=;
+    };
+
     /* Variables */
 
     Statistics statistics;
@@ -396,8 +411,8 @@ class BeliefExplorationPomdpModelChecker {
 
     std::optional<BeliefExchange> overApproxBeliefExchange;
 
-    Status unfoldingStatus;
-    UnfoldingControl unfoldingControl;
+    CopyableAtomic<Status> unfoldingStatus{Status::Uninitialized};
+    CopyableAtomic<UnfoldingControl> unfoldingControl{UnfoldingControl::Run};
     Result interactiveResult = Result(-storm::utility::infinity<ValueType>(), storm::utility::infinity<ValueType>());
 
     BeliefExchange beliefExchange;
